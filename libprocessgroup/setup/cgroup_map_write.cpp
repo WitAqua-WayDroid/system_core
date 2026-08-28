@@ -323,14 +323,34 @@ bool CgroupSetup() {
         }
     }
 
+    const auto it = descriptors.find(CGROUPV2_HIERARCHY_NAME);
+    const std::string cgroup_v2_root = (it == descriptors.end())
+                                                ? CGROUP_V2_ROOT_DEFAULT
+                                                : it->second.controller()->path();
+
+    // move all processes back to root cgroup after activating all controllers
+    std::string init_pids;
+    if (!android::base::ReadFileToString(cgroup_v2_root + "/init/cgroup.procs", &init_pids)) {
+        PLOG(ERROR) << "Failed to read PIDs from init cgroup";
+        return false;
+    }
+
+    std::istringstream iss(init_pids);
+    for (std::string pid; iss >> pid;) {
+        if (!android::base::WriteStringToFile(pid, cgroup_v2_root + "/cgroup.procs")) {
+            PLOG(ERROR) << "Failed to move PID " << pid << " into root cgroup";
+            return false;
+        }
+    }
+
+    if (rmdir((cgroup_v2_root + "/init").c_str()) != 0) {
+        PLOG(ERROR) << "Failed to remove init cgroup";
+        return false;
+    }
+
     // System / app isolation.
     // This really belongs in early-init in init.rc, but we cannot use the flag there.
     if (android::libprocessgroup_flags::cgroup_v2_sys_app_isolation()) {
-        const auto it = descriptors.find(CGROUPV2_HIERARCHY_NAME);
-        const std::string cgroup_v2_root = (it == descriptors.end())
-                                                   ? CGROUP_V2_ROOT_DEFAULT
-                                                   : it->second.controller()->path();
-
         LOG(INFO) << "Using system/app isolation under: " << cgroup_v2_root;
         if (!CreateV2SubHierarchy(cgroup_v2_root + "/apps", descriptors) ||
             !CreateV2SubHierarchy(cgroup_v2_root + "/system", descriptors)) {
