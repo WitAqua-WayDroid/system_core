@@ -137,7 +137,7 @@ ReadUeventResult UeventListener::ReadUevent(Uevent* uevent) const {
 // make sure we don't overrun the socket's buffer.
 //
 
-ListenerAction UeventListener::RegenerateUeventsForDir(DIR* d,
+ListenerAction UeventListener::RegenerateUeventsForDir(DIR* d, bool symlinkAllowed,
                                                        const ListenerCallback& callback) const {
     int dfd = dirfd(d);
 
@@ -157,7 +157,7 @@ ListenerAction UeventListener::RegenerateUeventsForDir(DIR* d,
 
     dirent* de;
     while ((de = readdir(d)) != nullptr) {
-        if (de->d_type != DT_DIR || de->d_name[0] == '.') continue;
+        if ((de->d_type != DT_DIR && !(symlinkAllowed && de->d_type == DT_LNK)) || de->d_name[0] == '.') continue;
 
         fd = openat(dfd, de->d_name, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
         if (fd < 0) continue;
@@ -166,7 +166,7 @@ ListenerAction UeventListener::RegenerateUeventsForDir(DIR* d,
         if (d2 == 0) {
             close(fd);
         } else {
-            if (RegenerateUeventsForDir(d2.get(), callback) == ListenerAction::kStop) {
+            if (RegenerateUeventsForDir(d2.get(), false, callback) == ListenerAction::kStop) {
                 return ListenerAction::kStop;
             }
         }
@@ -181,10 +181,16 @@ ListenerAction UeventListener::RegenerateUeventsForPath(const std::string& path,
     std::unique_ptr<DIR, decltype(&closedir)> d(opendir(path.c_str()), closedir);
     if (!d) return ListenerAction::kContinue;
 
-    return RegenerateUeventsForDir(d.get(), callback);
+    return RegenerateUeventsForDir(d.get(), false, callback);
 }
 
-static const char* kRegenerationPaths[] = {"devices"};
+static const char* kRegenerationPaths[] = {
+    "class/block",
+    "class/drm",
+    "class/input",
+    "class/misc",
+    "class/video4linux",
+};
 
 void UeventListener::RegenerateUevents(const ListenerCallback& callback) const {
     int fsfd, mntfd;
@@ -210,7 +216,7 @@ void UeventListener::RegenerateUevents(const ListenerCallback& callback) const {
 
     for (const auto path : kRegenerationPaths) {
         std::unique_ptr<DIR, decltype(&closedir)> d(fdopendir(openat(mntfd, path, O_DIRECTORY | O_CLOEXEC)), closedir);
-        if (RegenerateUeventsForDir(d.get(), callback) == ListenerAction::kStop) break;
+        if (RegenerateUeventsForDir(d.get(), true, callback) == ListenerAction::kStop) break;
     }
 
     close(mntfd);

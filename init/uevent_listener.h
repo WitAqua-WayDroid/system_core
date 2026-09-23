@@ -57,7 +57,7 @@ class UeventListener {
 
   private:
     ReadUeventResult ReadUevent(Uevent* uevent) const;
-    ListenerAction RegenerateUeventsForDir(DIR* d, const ListenerCallback& callback) const;
+    ListenerAction RegenerateUeventsForDir(DIR* d, bool symlinkAllowed, const ListenerCallback& callback) const;
 
     android::base::unique_fd device_fd_;
 };
