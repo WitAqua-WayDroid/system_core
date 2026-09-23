@@ -816,13 +816,14 @@ void DeviceHandler::HandleUevent(const Uevent& uevent) {
         devpath = "/dev/" + Basename(uevent.path);
     }
 
-    // Waydroid: ignore input/TTY devices by default
+    // Waydroid: ignore input/ALSA/TTY devices by default
+    auto alsa_dev = (uevent.major == 116);
     auto tty_dev = (uevent.major != 5 && StartsWith(uevent.device_name, "tty"));
     auto input_dev = StartsWith(uevent.device_name, "input/");
     auto hwcomposer = base::GetProperty("ro.hardware.hwcomposer", "");
     auto whitelist = base::Split(base::GetProperty("persist.waydroid.uevent.whitelist", ""), ":");
 
-    if ((tty_dev || (input_dev && hwcomposer != "drm_minigbm")) &&
+    if ((alsa_dev || tty_dev || (input_dev && hwcomposer != "drm_minigbm")) &&
         std::count(whitelist.begin(), whitelist.end(), Basename(uevent.device_name)) == 0)
     {
         return;
