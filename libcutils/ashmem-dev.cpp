@@ -202,15 +202,16 @@ static bool is_memfd_fd(int fd) {
     std::string fd_path = android::base::StringPrintf("/proc/self/fd/%d", fd);
     std::string result;
     if (!android::base::Readlink(fd_path, &result)) {
-        if (errno == EPERM) {
-            return has_memfd_support();
-        } else {
+        if (errno != EPERM) {
             ALOGE("readlink(%s) failed: %m", fd_path.c_str());
             return false;
         }
-    }
-
-    if (!result.starts_with("/memfd:")) {
+        // Readlink is denied in some containers; let the seals below tell
+        // whether this is a memfd instead.
+        if (!has_memfd_support()) {
+            return false;
+        }
+    } else if (!result.starts_with("/memfd:")) {
         return false;
     }
 
