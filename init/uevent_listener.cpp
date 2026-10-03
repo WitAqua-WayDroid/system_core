@@ -215,7 +215,13 @@ void UeventListener::RegenerateUevents(const ListenerCallback& callback) const {
     close(fsfd);
 
     for (const auto path : kRegenerationPaths) {
-        std::unique_ptr<DIR, decltype(&closedir)> d(fdopendir(openat(mntfd, path, O_DIRECTORY | O_CLOEXEC)), closedir);
+        int fd = openat(mntfd, path, O_DIRECTORY | O_CLOEXEC);
+        if (fd < 0) continue;  // The host has no device of this class
+        std::unique_ptr<DIR, decltype(&closedir)> d(fdopendir(fd), closedir);
+        if (!d) {
+            close(fd);
+            continue;
+        }
         if (RegenerateUeventsForDir(d.get(), true, callback) == ListenerAction::kStop) break;
     }
 
