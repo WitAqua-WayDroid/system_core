@@ -584,6 +584,14 @@ void BatteryMonitor::updateValues(void) {
         }
     }
 
+    // A host without a battery runs on mains. Say so, or anything that
+    // refuses to run on a low battery, such as Google's setup wizard,
+    // sees a battery at the fake level and no charger.
+    if (!mBatteryDevicePresent) {
+        mHealthInfo->chargerAcOnline = true;
+        mHealthInfo->batteryStatus = BatteryStatus::FULL;
+    }
+
     for (const auto& chargerName : mChargerNames) {
         String8 path;
         path.appendFormat("%s/%s/online", POWER_SUPPLY_SYSFS_PATH, chargerName.c_str());
@@ -789,7 +797,12 @@ status_t BatteryMonitor::getProperty(int id, struct BatteryProperty* val) {
             break;
 
         case BATTERY_PROP_CAPACITY:
-            readIntProp(mHealthdConfig->batteryCapacityPath);
+            if (mBatteryFixedCapacity) {
+                val->valueInt64 = mBatteryFixedCapacity;
+                ret = OK;
+            } else {
+                readIntProp(mHealthdConfig->batteryCapacityPath);
+            }
             break;
 
         case BATTERY_PROP_ENERGY_COUNTER:
@@ -1131,7 +1144,7 @@ void BatteryMonitor::init(struct healthd_config* hc) {
         KLOG_WARNING(LOG_TAG, "No battery devices found\n");
         hc->periodic_chores_interval_fast = -1;
         hc->periodic_chores_interval_slow = -1;
-        mBatteryFixedCapacity = FAKE_BATTERY_CAPACITY;
+        mBatteryFixedCapacity = 100;
         mBatteryFixedTemperature = FAKE_BATTERY_TEMPERATURE;
     } else {
         if (mHealthdConfig->batteryStatusPath.empty())
