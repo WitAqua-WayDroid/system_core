@@ -114,7 +114,6 @@ static int from_init_socket = -1;
 static int init_socket = -1;
 static bool accept_messages = false;
 [[clang::no_destroy]] static std::mutex accept_messages_lock;
-[[clang::no_destroy]] static std::mutex selinux_check_access_lock;
 [[clang::no_destroy]] static std::thread property_service_thread;
 [[clang::no_destroy]] static std::thread property_service_for_system_thread;
 
