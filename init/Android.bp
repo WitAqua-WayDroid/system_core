@@ -347,6 +347,14 @@ cc_binary {
     name: "init_second_stage",
     defaults: ["init_second_stage_defaults"],
     static_libs: ["libinit"],
+    // FIRST_STAGE_INIT (see init_second_stage_defaults) makes main() call
+    // FirstStageMain(), which lives in first_stage_init.cpp. Same three
+    // files init_second_stage.recovery already compiles in.
+    srcs: [
+        "first_stage_init.cpp",
+        "first_stage_mount.cpp",
+        "first_stage_mount_android.cpp",
+    ],
     visibility: ["//visibility:any_system_partition"],
     required: [
         "init.rc",
