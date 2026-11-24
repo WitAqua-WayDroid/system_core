@@ -334,6 +334,13 @@ cc_defaults {
     defaults: ["init_defaults"],
     srcs: ["main.cpp"],
     symlinks: ["ueventd"],
+    // Waydroid has no ramdisk / boot image: /system/bin/init is executed
+    // directly as PID 1 in the container, so it must run first-stage init
+    // itself. Upstream Android 17 split init into init_first_stage
+    // (ramdisk) and init_second_stage (/system/bin/init, second-stage
+    // only); without this, PID 1 aborts with
+    // "Second-stage init requires an argument to main()".
+    cflags: ["-DFIRST_STAGE_INIT=1"],
 }
 
 cc_binary {
