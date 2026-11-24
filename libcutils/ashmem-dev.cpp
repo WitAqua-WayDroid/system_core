@@ -204,7 +204,7 @@ static bool is_memfd_fd(int fd) {
         }
         // Readlink is denied in some containers; let the seals below tell
         // whether this is a memfd instead.
-        if (!has_memfd_support()) {
+        if (!use_memfd()) {
             return false;
         }
     } else if (!result.starts_with("/memfd:")) {
